@@ -16,7 +16,6 @@ import (
 	log "github.com/noxiouz/zapctx/ctxlog"
 
 	pb "github.com/sonm-io/core/proto"
-	"github.com/sonm-io/core/util"
 
 	frd "github.com/sonm-io/core/fusrodah/miner"
 	"github.com/sonm-io/core/insonmnia/resource"
@@ -417,60 +416,4 @@ func (m *Miner) Close() {
 	m.grpcServer.Stop()
 	m.rl.Close()
 	m.controlGroup.Delete()
-}
-
-// New returns new Miner
-func New(ctx context.Context, cfg Config) (*Miner, error) {
-	return newMiner(ctx, cfg, resource.New())
-}
-
-func newMiner(ctx context.Context, cfg Config, collector resource.Collector) (*Miner, error) {
-	addr, err := util.GetPublicIP()
-	if err != nil {
-		return nil, err
-	}
-
-	resources, err := collector.OS()
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	grpcServer := grpc.NewServer()
-	ovs, err := NewOverseer(ctx)
-	if err != nil {
-		cancel()
-		return nil, err
-	}
-
-	deleter, err := initializeControlGroup(cfg.HubResources())
-	if err != nil {
-		return nil, err
-	}
-
-	if !platformSupportCGroups && cfg.HubResources() != nil {
-		log.G(ctx).Warn("your platform does not support CGroup, but the config has resources section")
-	}
-
-	m := &Miner{
-		ctx:        ctx,
-		cancel:     cancel,
-		grpcServer: grpcServer,
-		ovs:        ovs,
-
-		resources: resources,
-
-		pubAddress: addr.String(),
-		hubAddress: cfg.HubEndpoint(),
-
-		rl:             newReverseListener(1),
-		containers:     make(map[string]*ContainerInfo),
-		statusChannels: make(map[int]chan bool),
-		nameMapping:    make(map[string]string),
-
-		controlGroup: deleter,
-	}
-
-	pb.RegisterMinerServer(grpcServer, m)
-	return m, nil
 }
