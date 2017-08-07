@@ -7,6 +7,7 @@ GOCMD=./cmd
 GO=go
 INSTALLDIR=${GOPATH}/bin
 TRUFFLE=./node_modules/truffle/build/cli.bundled.js
+TESTRPC=./node_modules/ethereumjs-testrpc/build/cli.node.js
 
 
 BOOTNODE=sonmbootnode
@@ -21,7 +22,7 @@ DOCKER_IMAGE_BOOTNODE="sonm/bootnode:latest"
 
 .PHONY: fmt vet test
 
-all: vet fmt build test install
+all: vet fmt build test test_contracts install
 
 build_bootnode:
 	@echo "+ $@"
@@ -78,6 +79,10 @@ fmt:
 test:
 	@echo "+ $@"
 	@go test -tags nocgo $(shell go list ./... | grep -vE 'vendor|contracts')
+
+test_contracts:
+	@echo "+ $@"
+	TESTRPC="$(shell pwd)/${TESTRPC}" ${GO} test ./contracts
 
 grpc:
 	protoc -I proto proto/hub/hub.proto --go_out=plugins=grpc,Mminer/miner.proto=github.com/sonm-io/core/proto/miner:proto/
