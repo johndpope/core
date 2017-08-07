@@ -28,6 +28,8 @@ type Description struct {
 	Registry string
 	Image    string
 	Auth     string
+
+	GPURequired bool
 }
 
 // ContainerInfo is a brief information about containers
@@ -76,17 +78,33 @@ type overseer struct {
 
 	registryAuth map[string]string
 
+	// GPU tuner
+	gpu      *GPUConfig
+	gpuTuner nvidiaGPUTuner
+
 	// protects containers map
 	mu         sync.Mutex
 	containers map[string]*containerDescriptor
 	statuses   map[string]chan pb.TaskStatusReply_Status
 }
 
+func (o *overseer) supportGPU() bool {
+	return o.gpu != nil
+}
+
 // NewOverseer creates new overseer
-func NewOverseer(ctx context.Context) (Overseer, error) {
+func NewOverseer(ctx context.Context, gpu *GPUConfig) (Overseer, error) {
 	dockerClient, err := client.NewEnvClient()
 	if err != nil {
 		return nil, err
+	}
+
+	var tuner nvidiaGPUTuner = nilGPUTuner{}
+	if gpu != nil {
+		tuner, err = newGPUTuner(gpu)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -95,6 +113,9 @@ func NewOverseer(ctx context.Context) (Overseer, error) {
 		cancel: cancel,
 
 		client: dockerClient,
+
+		gpu:      gpu,
+		gpuTuner: tuner,
 
 		containers: make(map[string]*containerDescriptor),
 		statuses:   make(map[string]chan pb.TaskStatusReply_Status),
@@ -283,7 +304,16 @@ func (o *overseer) Spool(ctx context.Context, d Description) error {
 }
 
 func (o *overseer) Start(ctx context.Context, description Description) (status chan pb.TaskStatusReply_Status, cinfo ContainerInfo, err error) {
-	pr, err := newContainer(ctx, o.client, description)
+	var tuner nvidiaGPUTuner = nilGPUTuner{}
+	if description.GPURequired {
+		if !o.supportGPU() {
+			err = fmt.Errorf("GPU required but not supported or disabled")
+			return
+		}
+		tuner = o.gpuTuner
+	}
+
+	pr, err := newContainer(ctx, o.client, description, tuner)
 	if err != nil {
 		return
 	}

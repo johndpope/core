@@ -437,7 +437,7 @@ func newMiner(ctx context.Context, cfg Config, collector resource.Collector) (*M
 
 	ctx, cancel := context.WithCancel(ctx)
 	grpcServer := grpc.NewServer()
-	ovs, err := NewOverseer(ctx)
+	ovs, err := NewOverseer(ctx, cfg.GPU())
 	if err != nil {
 		cancel()
 		return nil, err

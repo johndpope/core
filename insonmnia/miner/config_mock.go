@@ -31,6 +31,18 @@ func (_m *MockConfig) EXPECT() *MockConfigMockRecorder {
 	return _m.recorder
 }
 
+// GPU mocks base method
+func (_m *MockConfig) GPU() *GPUConfig {
+	ret := _m.ctrl.Call(_m, "GPU")
+	ret0, _ := ret[0].(*GPUConfig)
+	return ret0
+}
+
+// GPU indicates an expected call of GPU
+func (_mr *MockConfigMockRecorder) GPU() *gomock.Call {
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "GPU", reflect.TypeOf((*MockConfig)(nil).GPU))
+}
+
 // HubEndpoint mocks base method
 func (_m *MockConfig) HubEndpoint() string {
 	ret := _m.ctrl.Call(_m, "HubEndpoint")
